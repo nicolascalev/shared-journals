@@ -1,7 +1,7 @@
 {
   "name": "shared-journals",
   "version": "1.0.0",
-  "description": "Website template for Payload",
+  "description": "Shared fitness journals for friend groups",
   "license": "MIT",
   "type": "module",
   "scripts": {

@@ -1,0 +1,103 @@
+'use client'
+
+import React, { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+
+import { Button } from '@/components/ui/button'
+import { Countdown } from '@/components/events/Countdown'
+import { EntryForm } from '@/components/events/EntryForm'
+import { EntriesFeed, type FeedEntry } from '@/components/events/EntriesFeed'
+import { Leaderboard, type LeaderboardRow } from '@/components/events/Leaderboard'
+import { MemberPicker, type MemberOption } from '@/components/events/MemberPicker'
+import { lockEvent } from '@/app/(frontend)/actions/session'
+import RichText from '@/components/RichText'
+import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
+
+type Props = {
+  slug: string
+  title: string
+  endDate: string
+  startDate: string
+  description?: DefaultTypedEditorState | null
+  rankingEnabled: boolean
+  members: MemberOption[]
+  selectedMemberId?: string | null
+  entries: FeedEntry[]
+  leaderboard: LeaderboardRow[]
+}
+
+export function EventDashboard({
+  slug,
+  title,
+  endDate,
+  startDate,
+  description,
+  rankingEnabled,
+  members,
+  selectedMemberId,
+  entries,
+  leaderboard,
+}: Props) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <div className="container py-10 space-y-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="max-w-2xl">
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">Event</p>
+          <h1 className="text-4xl font-semibold tracking-tight mb-3">{title}</h1>
+          <p className="text-muted-foreground">
+            {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(startDate))}
+            {' — '}
+            {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(endDate))}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() => {
+            startTransition(async () => {
+              await lockEvent(slug)
+              router.refresh()
+            })
+          }}
+        >
+          Lock event
+        </Button>
+      </div>
+
+      <Countdown endDate={endDate} />
+
+      {description ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Details</h2>
+          <RichText data={description} enableGutter={false} />
+        </section>
+      ) : null}
+
+      <MemberPicker slug={slug} members={members} selectedMemberId={selectedMemberId} />
+
+      {rankingEnabled ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Leaderboard</h2>
+            <p className="text-sm text-muted-foreground">
+              Ranked by number of entries. Click a row to view that member&apos;s entries.
+            </p>
+          </div>
+          <Leaderboard
+            rows={leaderboard}
+            entries={entries}
+            slug={slug}
+            selectedMemberId={selectedMemberId}
+          />
+        </section>
+      ) : null}
+
+      <EntryForm slug={slug} members={members} selectedMemberId={selectedMemberId} />
+
+      <EntriesFeed slug={slug} entries={entries} selectedMemberId={selectedMemberId} />
+    </div>
+  )
+}
