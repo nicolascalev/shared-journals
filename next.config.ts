@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
           protocol: url.protocol.replace(':', '') as 'http' | 'https',
         }
       }),
+      {
+        hostname: 't3.storageapi.dev',
+        protocol: 'https',
+      },
     ],
   },
   webpack: (webpackConfig) => {
