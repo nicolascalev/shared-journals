@@ -34,6 +34,7 @@ export default buildConfig({
     client: {
       url: process.env.DATABASE_URL || '',
     },
+    push: true,
   }),
   collections: [Users, Media, Members, Events, Entries],
   cors: [getServerSideURL()].filter(Boolean),
