@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import config from '@payload-config'
 
 import { getEventSessionForSlug } from '@/utilities/eventSession'
+import { getEventPhase } from '@/utilities/eventPhase'
 
 export type EntryActionResult = { ok: true } | { ok: false; error: string }
 
@@ -14,6 +15,15 @@ async function requireSession(slug: string) {
     return { error: 'Unlock this event first.' as const, session: null }
   }
   return { error: null, session }
+}
+
+function assertEventAcceptsEntries(startDate: string, endDate: string): EntryActionResult | null {
+  const phase = getEventPhase(startDate, endDate)
+  if (phase === 'upcoming') return { ok: false, error: 'This event has not started yet.' }
+  if (phase === 'finished') {
+    return { ok: false, error: 'This event has finished. Logging is closed.' }
+  }
+  return null
 }
 
 export async function createEntry(formData: FormData): Promise<EntryActionResult> {
@@ -38,6 +48,9 @@ export async function createEntry(formData: FormData): Promise<EntryActionResult
     depth: 0,
     overrideAccess: true,
   })
+
+  const phaseError = assertEventAcceptsEntries(event.startDate, event.endDate)
+  if (phaseError) return phaseError
 
   const memberIds = (event.members || []).map((m) => (typeof m === 'object' ? String(m.id) : String(m)))
   if (!memberIds.includes(memberId)) {
@@ -113,6 +126,15 @@ export async function updateEntry(formData: FormData): Promise<EntryActionResult
     return { ok: false, error: 'You can only edit your own entries. Pick your name first.' }
   }
 
+  const event = await payload.findByID({
+    collection: 'events',
+    id: session.eventId,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const phaseError = assertEventAcceptsEntries(event.startDate, event.endDate)
+  if (phaseError) return phaseError
+
   let imageId: number | string | undefined | null = undefined
   if (image && image instanceof File && image.size > 0) {
     const buffer = Buffer.from(await image.arrayBuffer())
@@ -170,6 +192,15 @@ export async function deleteEntry(slug: string, entryId: string): Promise<EntryA
   if (!session.memberId || String(entryMemberId) !== String(session.memberId)) {
     return { ok: false, error: 'You can only delete your own entries. Pick your name first.' }
   }
+
+  const event = await payload.findByID({
+    collection: 'events',
+    id: session.eventId,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const phaseError = assertEventAcceptsEntries(event.startDate, event.endDate)
+  if (phaseError) return phaseError
 
   await payload.delete({
     collection: 'entries',
