@@ -9,6 +9,11 @@ import { EntryForm } from '@/components/events/EntryForm'
 import { EntriesFeed, type FeedEntry } from '@/components/events/EntriesFeed'
 import { Leaderboard, type LeaderboardRow } from '@/components/events/Leaderboard'
 import { MemberPicker, type MemberOption } from '@/components/events/MemberPicker'
+import { WelcomeModal } from '@/components/events/WelcomeModal'
+import {
+  InviteAnswersButton,
+  type InviteAnswer,
+} from '@/components/events/InviteAnswersButton'
 import { lockEvent } from '@/app/(frontend)/actions/session'
 import RichText from '@/components/RichText'
 import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
@@ -24,6 +29,10 @@ type Props = {
   selectedMemberId?: string | null
   entries: FeedEntry[]
   leaderboard: LeaderboardRow[]
+  showWelcome?: boolean
+  eventPath: string
+  inviteAnswers?: InviteAnswer[]
+  hasInviteForm?: boolean
 }
 
 export function EventDashboard({
@@ -37,12 +46,18 @@ export function EventDashboard({
   selectedMemberId,
   entries,
   leaderboard,
+  showWelcome = false,
+  eventPath,
+  inviteAnswers = [],
+  hasInviteForm = false,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   return (
     <div className="container py-10 space-y-10">
+      {showWelcome ? <WelcomeModal slug={slug} eventTitle={title} eventPath={eventPath} /> : null}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">Event</p>
@@ -53,18 +68,21 @@ export function EventDashboard({
             {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(endDate))}
           </p>
         </div>
-        <Button
-          variant="outline"
-          disabled={pending}
-          onClick={() => {
-            startTransition(async () => {
-              await lockEvent(slug)
-              router.refresh()
-            })
-          }}
-        >
-          Lock event
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {hasInviteForm ? <InviteAnswersButton answers={inviteAnswers} /> : null}
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              startTransition(async () => {
+                await lockEvent(slug)
+                router.refresh()
+              })
+            }}
+          >
+            Lock event
+          </Button>
+        </div>
       </div>
 
       <Countdown endDate={endDate} />

@@ -1,22 +1,15 @@
 import type { CollectionConfig } from 'payload'
 import { APIError, slugField } from 'payload'
-import {
-  HeadingFeature,
-  lexicalEditor,
-  BoldFeature,
-  ItalicFeature,
-  LinkFeature,
-  ParagraphFeature,
-  UnderlineFeature,
-} from '@payloadcms/richtext-lexical'
+import { randomUUID } from 'crypto'
 
 import { authenticated } from '../../access/authenticated'
-import { hashAccessCode, verifyAccessCode } from '../../utilities/accessCode'
+import { hashAccessCode, isHashedAccessCode, verifyAccessCode } from '../../utilities/accessCode'
 import {
   buildEventSession,
   encodeEventSession,
   sessionCookieOptions,
 } from '../../utilities/eventSession'
+import { journalRichTextEditor } from '../../fields/journalRichText'
 
 export const Events: CollectionConfig = {
   slug: 'events',
@@ -45,11 +38,30 @@ export const Events: CollectionConfig = {
       },
     ],
     beforeChange: [
-      ({ data, operation }) => {
+      ({ data, operation, originalDoc }) => {
         if (!data) return data
 
+        if (operation === 'create') {
+          if (!data.inviteToken) data.inviteToken = randomUUID()
+        } else if (operation === 'update') {
+          if (!data.inviteToken) {
+            data.inviteToken = originalDoc?.inviteToken || randomUUID()
+          }
+        }
+
+        // Only hash new plaintext codes. Never re-hash an existing salt:hash value
+        // (Payload update payloads can include the stored hash from originalDoc).
         if (typeof data.accessCode === 'string' && data.accessCode.length > 0) {
-          data.accessCode = hashAccessCode(data.accessCode)
+          const incoming = data.accessCode
+          if (operation === 'update') {
+            if (incoming === originalDoc?.accessCode || isHashedAccessCode(incoming)) {
+              delete data.accessCode
+            } else {
+              data.accessCode = hashAccessCode(incoming)
+            }
+          } else {
+            data.accessCode = isHashedAccessCode(incoming) ? incoming : hashAccessCode(incoming)
+          }
         } else if (operation === 'update') {
           delete data.accessCode
         }
@@ -61,7 +73,6 @@ export const Events: CollectionConfig = {
       ({ doc, context }) => {
         if (context?.keepAccessCode) return doc
         if (doc) {
-          // Empty string in admin so edits don't re-hash; omitted for API consumers
           doc.accessCode = ''
         }
         return doc
@@ -145,16 +156,7 @@ export const Events: CollectionConfig = {
       admin: {
         description: 'Include reward, punishment, rules — whatever the group needs.',
       },
-      editor: lexicalEditor({
-        features: [
-          HeadingFeature({ enabledHeadingSizes: ['h2', 'h3'] }),
-          ParagraphFeature(),
-          BoldFeature(),
-          ItalicFeature(),
-          UnderlineFeature(),
-          LinkFeature(),
-        ],
-      }),
+      editor: journalRichTextEditor,
     },
     {
       name: 'startDate',
@@ -181,7 +183,7 @@ export const Events: CollectionConfig = {
       type: 'text',
       admin: {
         description:
-          'Shared password for the event page. Leave blank when editing to keep the current code.',
+          'Shared password for the event page and invites. Leave blank when editing to keep the current code.',
       },
     },
     {
@@ -195,10 +197,54 @@ export const Events: CollectionConfig = {
       type: 'relationship',
       relationTo: 'members',
       hasMany: true,
-      required: true,
       admin: {
-        description: 'People who can log entries for this event.',
+        description: 'People who can log entries. Filled automatically when someone enrolls via invite.',
       },
+    },
+    {
+      type: 'collapsible',
+      label: 'Invite',
+      admin: {
+        initCollapsed: false,
+      },
+      fields: [
+        {
+          name: 'inviteToken',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: {
+            readOnly: true,
+            description: 'Auto-generated. Used in the public invite URL.',
+          },
+        },
+        {
+          name: 'inviteLink',
+          type: 'ui',
+          admin: {
+            components: {
+              Field: '@/components/admin/InviteLinkField',
+            },
+          },
+        },
+        {
+          name: 'inviteDescription',
+          type: 'richText',
+          admin: {
+            description: 'Shown on the invite page before enrollment.',
+          },
+          editor: journalRichTextEditor,
+        },
+        {
+          name: 'inviteForm',
+          type: 'relationship',
+          relationTo: 'forms',
+          admin: {
+            description:
+              'Form shown during enrollment. Must include a text field named "name" for the member display name.',
+          },
+        },
+      ],
     },
     {
       name: 'entries',

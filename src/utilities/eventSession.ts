@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { cookies } from 'next/headers'
 
 export const EVENT_SESSION_COOKIE = 'event_session'
+export const WELCOME_PENDING_COOKIE = 'event_welcome_pending'
 
 export type EventSession = {
   eventId: number | string

@@ -7,6 +7,7 @@ import config from '@payload-config'
 
 import {
   EVENT_SESSION_COOKIE,
+  WELCOME_PENDING_COOKIE,
   buildEventSession,
   encodeEventSession,
   getEventSessionForSlug,
@@ -83,6 +84,9 @@ export async function selectMember(slug: string, memberId: string): Promise<Acti
 export async function lockEvent(slug: string): Promise<ActionResult> {
   const jar = await cookies()
   jar.delete(EVENT_SESSION_COOKIE)
+  if (jar.get(WELCOME_PENDING_COOKIE)?.value === slug) {
+    jar.delete(WELCOME_PENDING_COOKIE)
+  }
   revalidatePath(`/events/${slug}`)
   return { ok: true }
 }

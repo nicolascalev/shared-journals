@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import React from 'react'
@@ -9,7 +10,12 @@ import { UnlockForm } from '@/components/events/UnlockForm'
 import { EventDashboard } from '@/components/events/EventDashboard'
 import type { FeedEntry } from '@/components/events/EntriesFeed'
 import type { LeaderboardRow } from '@/components/events/Leaderboard'
-import { getEventSessionForSlug } from '@/utilities/eventSession'
+import type { InviteAnswer } from '@/components/events/InviteAnswersButton'
+import {
+  WELCOME_PENDING_COOKIE,
+  getEventSessionForSlug,
+} from '@/utilities/eventSession'
+import { getServerSideURL } from '@/utilities/getURL'
 import type { Media, Member } from '@/payload-types'
 
 type Args = {
@@ -43,6 +49,8 @@ export default async function EventPage({ params }: Args) {
   const { slug } = await params
   const payload = await getPayload({ config })
   const session = await getEventSessionForSlug(slug)
+  const jar = await cookies()
+  const showWelcome = jar.get(WELCOME_PENDING_COOKIE)?.value === slug
 
   const result = await payload.find({
     collection: 'events',
@@ -114,6 +122,39 @@ export default async function EventPage({ params }: Args) {
     })
     .sort((a, b) => b.count - a.count || a.memberName.localeCompare(b.memberName))
 
+  const inviteFormId =
+    typeof event.inviteForm === 'object' && event.inviteForm
+      ? event.inviteForm.id
+      : event.inviteForm
+
+  let inviteAnswers: InviteAnswer[] = []
+  if (inviteFormId) {
+    const submissions = await payload.find({
+      collection: 'form-submissions',
+      where: {
+        and: [{ form: { equals: inviteFormId } }, { event: { equals: event.id } }],
+      },
+      sort: '-createdAt',
+      depth: 1,
+      limit: 200,
+      overrideAccess: true,
+    })
+
+    inviteAnswers = submissions.docs.map((doc) => {
+      const member = typeof doc.member === 'object' && doc.member ? doc.member : null
+      const nameFromAnswers = (doc.submissionData || []).find((item) => item.field === 'name')?.value
+      return {
+        id: String(doc.id),
+        createdAt: doc.createdAt,
+        memberName: member?.name || nameFromAnswers || 'Unknown',
+        answers: (doc.submissionData || []).map((item) => ({
+          field: item.field,
+          value: item.value,
+        })),
+      }
+    })
+  }
+
   return (
     <EventDashboard
       slug={event.slug}
@@ -126,6 +167,10 @@ export default async function EventPage({ params }: Args) {
       selectedMemberId={session.memberId ? String(session.memberId) : null}
       entries={entries}
       leaderboard={leaderboard}
+      showWelcome={showWelcome}
+      eventPath={`${getServerSideURL()}/events/${event.slug}`}
+      inviteAnswers={inviteAnswers}
+      hasInviteForm={Boolean(inviteFormId)}
     />
   )
 }

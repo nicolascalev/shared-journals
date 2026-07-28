@@ -1,0 +1,50 @@
+import {
+  AlignFeature,
+  BlockquoteFeature,
+  BoldFeature,
+  ChecklistFeature,
+  FixedToolbarFeature,
+  HeadingFeature,
+  HorizontalRuleFeature,
+  IndentFeature,
+  InlineCodeFeature,
+  InlineToolbarFeature,
+  ItalicFeature,
+  LinkFeature,
+  OrderedListFeature,
+  ParagraphFeature,
+  StrikethroughFeature,
+  UnderlineFeature,
+  UnorderedListFeature,
+  UploadFeature,
+  lexicalEditor,
+} from '@payloadcms/richtext-lexical'
+
+export const journalRichTextEditor = lexicalEditor({
+  features: [
+    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+    ParagraphFeature(),
+    BoldFeature(),
+    ItalicFeature(),
+    UnderlineFeature(),
+    StrikethroughFeature(),
+    InlineCodeFeature(),
+    OrderedListFeature(),
+    UnorderedListFeature(),
+    ChecklistFeature(),
+    BlockquoteFeature(),
+    HorizontalRuleFeature(),
+    AlignFeature(),
+    IndentFeature(),
+    LinkFeature(),
+    UploadFeature({
+      collections: {
+        media: {
+          fields: [],
+        },
+      },
+    }),
+    FixedToolbarFeature(),
+    InlineToolbarFeature(),
+  ],
+})
