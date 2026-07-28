@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createEntry } from '@/app/(frontend)/actions/entries'
+import { celebrateEntry } from '@/utilities/celebrateEntry'
 import type { MemberOption } from './MemberPicker'
 
 type Props = {
@@ -47,6 +48,7 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
         setError(result.error)
         return
       }
+      celebrateEntry()
       form.reset()
       const loggedAt = form.querySelector<HTMLInputElement>('#loggedAtLocal')
       if (loggedAt) loggedAt.value = toLocalInputValue()

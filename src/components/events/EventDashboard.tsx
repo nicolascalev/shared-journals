@@ -69,17 +69,19 @@ export function EventDashboard({
     <div className="container py-10 space-y-10">
       {showWelcome ? <WelcomeModal slug={slug} eventTitle={title} eventPath={eventPath} /> : null}
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-2xl">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 w-full md:max-w-2xl">
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">Event</p>
-          <h1 className="text-4xl font-semibold tracking-tight mb-3">{title}</h1>
+          <h1 className="text-4xl font-semibold tracking-tight mb-3 break-words [overflow-wrap:anywhere]">
+            {title}
+          </h1>
           <p className="text-muted-foreground">
             {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(startDate))}
             {' — '}
             {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(endDate))}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
           {hasInviteForm ? <InviteAnswersButton answers={inviteAnswers} /> : null}
           <Button
             variant="outline"
