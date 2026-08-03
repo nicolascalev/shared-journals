@@ -56,7 +56,9 @@ export default async function InvitePage({ params }: Args) {
   if (!formDoc || typeof formDoc !== 'object') {
     return (
       <div className="container py-20 max-w-xl mx-auto text-center space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{event.title}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight break-words [overflow-wrap:anywhere]">
+          {event.title}
+        </h1>
         <p className="text-muted-foreground">
           This invite is not ready yet. Ask the admin to attach an enrollment form.
         </p>

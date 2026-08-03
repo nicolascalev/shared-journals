@@ -85,7 +85,9 @@ export function InviteEnrollForm({
     <div className="mx-auto w-full max-w-xl space-y-8">
       <div className="text-center">
         <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">Invite</p>
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">{eventTitle}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight mb-2 break-words [overflow-wrap:anywhere]">
+          {eventTitle}
+        </h1>
         <p className="text-muted-foreground">
           {unlocked
             ? 'Complete the form to join this event.'

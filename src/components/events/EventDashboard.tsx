@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Countdown } from '@/components/events/Countdown'
@@ -11,10 +12,7 @@ import { Leaderboard, type LeaderboardRow } from '@/components/events/Leaderboar
 import { MemberPicker, type MemberOption } from '@/components/events/MemberPicker'
 import { WelcomeModal } from '@/components/events/WelcomeModal'
 import { Podium } from '@/components/events/Podium'
-import {
-  InviteAnswersButton,
-  type InviteAnswer,
-} from '@/components/events/InviteAnswersButton'
+import { InviteAnswersButton, type InviteAnswer } from '@/components/events/InviteAnswersButton'
 import { lockEvent } from '@/app/(frontend)/actions/session'
 import RichText from '@/components/RichText'
 import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
@@ -56,6 +54,7 @@ export function EventDashboard({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [phase, setPhase] = useState<EventPhase>(() => getEventPhase(startDate, endDate))
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const podium = useMemo(() => buildPodium(leaderboard), [leaderboard])
 
   useEffect(() => {
@@ -76,7 +75,9 @@ export function EventDashboard({
             {title}
           </h1>
           <p className="text-muted-foreground">
-            {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(startDate))}
+            {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+              new Date(startDate),
+            )}
             {' — '}
             {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(endDate))}
           </p>
@@ -104,8 +105,18 @@ export function EventDashboard({
 
       {description ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold tracking-tight">Details</h2>
-          <RichText data={description} enableGutter={false} />
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((value) => !value)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            aria-expanded={detailsOpen}
+          >
+            <h2 className="text-lg font-semibold tracking-tight">Details</h2>
+            <ChevronDown
+              className={`size-5 text-muted-foreground transition-transform ${detailsOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {detailsOpen ? <RichText data={description} enableGutter={false} /> : null}
         </section>
       ) : null}
 
