@@ -38,13 +38,20 @@ async function canvasToBlob(
 /**
  * Resize + compress an image on the client so the Server Action body
  * stays under Vercel's ~4.5 MB function limit.
+ *
+ * Canvas re-encoding always drops EXIF/metadata. Files already under the
+ * size budget are left untouched so the server can preserve metadata.
  */
 export async function compressImageForUpload(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Please choose an image file.')
   }
 
-  // Already small enough and not gigantic in pixels — still normalize formats below
+  // Under budget → keep original bytes (and EXIF/GPS/etc.) for server processing
+  if (file.size <= MAX_IMAGE_UPLOAD_BYTES) {
+    return file
+  }
+
   const img = await loadImage(file)
   const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height))
   const width = Math.max(1, Math.round(img.width * scale))
@@ -60,9 +67,8 @@ export async function compressImageForUpload(file: File): Promise<File> {
   ctx.fillRect(0, 0, width, height)
   ctx.drawImage(img, 0, 0, width, height)
 
-  const preferWebp = typeof canvas.toBlob === 'function'
-  const type = preferWebp ? 'image/webp' : 'image/jpeg'
-  const ext = type === 'image/webp' ? 'webp' : 'jpg'
+  const type = 'image/webp'
+  const ext = 'webp'
   const baseName = file.name.replace(/\.[^.]+$/, '') || 'upload'
 
   let quality = 0.82
