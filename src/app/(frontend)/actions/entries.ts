@@ -6,6 +6,7 @@ import config from '@payload-config'
 
 import { getEventSessionForSlug } from '@/utilities/eventSession'
 import { getEventPhase } from '@/utilities/eventPhase'
+import { processEntryImage } from '@/utilities/processEntryImage'
 
 export type EntryActionResult = { ok: true } | { ok: false; error: string }
 
@@ -27,70 +28,88 @@ function assertEventAcceptsEntries(startDate: string, endDate: string): EntryAct
 }
 
 export async function createEntry(formData: FormData): Promise<EntryActionResult> {
-  const slug = String(formData.get('slug') || '')
-  const { session, error } = await requireSession(slug)
-  if (!session) return { ok: false, error: error || 'Unauthorized' }
+  try {
+    const slug = String(formData.get('slug') || '')
+    const { session, error } = await requireSession(slug)
+    if (!session) return { ok: false, error: error || 'Unauthorized' }
 
-  const memberId = String(formData.get('memberId') || session.memberId || '')
-  const description = String(formData.get('description') || '').trim()
-  const loggedAt = String(formData.get('loggedAt') || new Date().toISOString())
-  const durationRaw = String(formData.get('durationMinutes') || '').trim()
-  const image = formData.get('image')
+    const memberId = String(formData.get('memberId') || session.memberId || '')
+    const description = String(formData.get('description') || '').trim()
+    const loggedAt = String(formData.get('loggedAt') || new Date().toISOString())
+    const durationRaw = String(formData.get('durationMinutes') || '').trim()
+    const image = formData.get('image')
 
-  if (!memberId) return { ok: false, error: 'Pick who you are.' }
-  if (!description) return { ok: false, error: 'Add a short description.' }
+    if (!memberId) return { ok: false, error: 'Pick who you are.' }
+    if (!description) return { ok: false, error: 'Add a short description.' }
 
-  const payload = await getPayload({ config })
+    const payload = await getPayload({ config })
 
-  const event = await payload.findByID({
-    collection: 'events',
-    id: session.eventId,
-    depth: 0,
-    overrideAccess: true,
-  })
+    const event = await payload.findByID({
+      collection: 'events',
+      id: session.eventId,
+      depth: 0,
+      overrideAccess: true,
+    })
 
-  const phaseError = assertEventAcceptsEntries(event.startDate, event.endDate)
-  if (phaseError) return phaseError
+    const phaseError = assertEventAcceptsEntries(event.startDate, event.endDate)
+    if (phaseError) return phaseError
 
-  const memberIds = (event.members || []).map((m) => (typeof m === 'object' ? String(m.id) : String(m)))
-  if (!memberIds.includes(memberId)) {
-    return { ok: false, error: 'That member is not in this event.' }
-  }
+    const memberIds = (event.members || []).map((m) =>
+      typeof m === 'object' ? String(m.id) : String(m),
+    )
+    if (!memberIds.includes(memberId)) {
+      return { ok: false, error: 'That member is not in this event.' }
+    }
 
-  let imageId: number | string | undefined
-  if (image && image instanceof File && image.size > 0) {
-    const buffer = Buffer.from(await image.arrayBuffer())
-    const media = await payload.create({
-      collection: 'media',
+    let imageId: number | string | undefined
+    if (image && image instanceof File && image.size > 0) {
+      try {
+        const buffer = Buffer.from(await image.arrayBuffer())
+        const processed = await processEntryImage(buffer, image.name)
+        const media = await payload.create({
+          collection: 'media',
+          data: {
+            alt: description.slice(0, 100),
+          },
+          file: {
+            data: processed.data,
+            mimetype: processed.mimetype,
+            name: processed.name,
+            size: processed.size,
+          },
+          overrideAccess: true,
+        })
+        imageId = media.id
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Could not process image.',
+        }
+      }
+    }
+
+    await payload.create({
+      collection: 'entries',
       data: {
-        alt: description.slice(0, 100),
-      },
-      file: {
-        data: buffer,
-        mimetype: image.type || 'application/octet-stream',
-        name: image.name || 'upload.jpg',
-        size: image.size,
+        event: Number(session.eventId),
+        member: Number(memberId),
+        description,
+        loggedAt,
+        durationMinutes: durationRaw ? Number(durationRaw) : undefined,
+        image: imageId != null ? Number(imageId) : undefined,
       },
       overrideAccess: true,
     })
-    imageId = media.id
+
+    revalidatePath(`/events/${slug}`)
+    return { ok: true }
+  } catch (err) {
+    console.error('createEntry failed', err)
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Could not save your entry. Please try again.',
+    }
   }
-
-  await payload.create({
-    collection: 'entries',
-    data: {
-      event: Number(session.eventId),
-      member: Number(memberId),
-      description,
-      loggedAt,
-      durationMinutes: durationRaw ? Number(durationRaw) : undefined,
-      image: imageId != null ? Number(imageId) : undefined,
-    },
-    overrideAccess: true,
-  })
-
-  revalidatePath(`/events/${slug}`)
-  return { ok: true }
 }
 
 export async function updateEntry(formData: FormData): Promise<EntryActionResult> {
@@ -137,21 +156,29 @@ export async function updateEntry(formData: FormData): Promise<EntryActionResult
 
   let imageId: number | string | undefined | null = undefined
   if (image && image instanceof File && image.size > 0) {
-    const buffer = Buffer.from(await image.arrayBuffer())
-    const media = await payload.create({
-      collection: 'media',
-      data: {
-        alt: description.slice(0, 100),
-      },
-      file: {
-        data: buffer,
-        mimetype: image.type || 'application/octet-stream',
-        name: image.name || 'upload.jpg',
-        size: image.size,
-      },
-      overrideAccess: true,
-    })
-    imageId = media.id
+    try {
+      const buffer = Buffer.from(await image.arrayBuffer())
+      const processed = await processEntryImage(buffer, image.name)
+      const media = await payload.create({
+        collection: 'media',
+        data: {
+          alt: description.slice(0, 100),
+        },
+        file: {
+          data: processed.data,
+          mimetype: processed.mimetype,
+          name: processed.name,
+          size: processed.size,
+        },
+        overrideAccess: true,
+      })
+      imageId = media.id
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not process image.',
+      }
+    }
   }
 
   await payload.update({

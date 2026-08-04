@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { enrollWithInvite, verifyInviteCode } from '@/app/(frontend)/actions/invite'
+import {
+  SubmitErrorAlert,
+  formatSubmitError,
+  showSubmitFailure,
+} from '@/components/SubmitErrorAlert'
 import RichText from '@/components/RichText'
 import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
 
@@ -57,12 +62,19 @@ export function InviteEnrollForm({
     }
 
     startTransition(async () => {
-      const result = await verifyInviteCode(token, trimmed)
-      if (!result.ok) {
-        setError(result.error)
-        return
+      try {
+        const result = await verifyInviteCode(token, trimmed)
+        if (!result.ok) {
+          setError(result.error)
+          showSubmitFailure(result.error)
+          return
+        }
+        setUnlocked(true)
+      } catch (err) {
+        const message = formatSubmitError(err, 'Could not verify access code.')
+        setError(message)
+        showSubmitFailure(message)
       }
-      setUnlocked(true)
     })
   }
 
@@ -74,9 +86,25 @@ export function InviteEnrollForm({
     formData.set('code', code)
 
     startTransition(async () => {
-      const result = await enrollWithInvite(formData)
-      if (result && !result.ok) {
-        setError(result.error)
+      try {
+        const result = await enrollWithInvite(formData)
+        if (result && !result.ok) {
+          setError(result.error)
+          showSubmitFailure(result.error)
+        }
+      } catch (err) {
+        // redirect() throws a special NEXT_REDIRECT error — ignore those
+        if (
+          err &&
+          typeof err === 'object' &&
+          'digest' in err &&
+          String((err as { digest?: string }).digest).startsWith('NEXT_REDIRECT')
+        ) {
+          return
+        }
+        const message = formatSubmitError(err, 'Could not complete enrollment.')
+        setError(message)
+        showSubmitFailure(message)
       }
     })
   }
@@ -111,7 +139,7 @@ export function InviteEnrollForm({
               required
             />
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <SubmitErrorAlert message={error} /> : null}
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? 'Checking…' : 'Continue'}
           </Button>
@@ -231,7 +259,7 @@ export function InviteEnrollForm({
             </p>
           ) : null}
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <SubmitErrorAlert message={error} /> : null}
 
           <Button type="submit" className="w-full" disabled={pending || inputFields.length === 0}>
             {pending ? 'Joining…' : submitLabel || 'Join event'}

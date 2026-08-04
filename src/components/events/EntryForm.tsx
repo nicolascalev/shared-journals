@@ -7,8 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  SubmitErrorAlert,
+  formatSubmitError,
+  showSubmitFailure,
+} from '@/components/SubmitErrorAlert'
 import { createEntry } from '@/app/(frontend)/actions/entries'
 import { celebrateEntry } from '@/utilities/celebrateEntry'
+import { prepareEntryImage } from '@/utilities/compressImage'
 import type { MemberOption } from './MemberPicker'
 
 type Props = {
@@ -43,16 +49,24 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
     }
 
     startTransition(async () => {
-      const result = await createEntry(formData)
-      if (!result.ok) {
-        setError(result.error)
-        return
+      try {
+        await prepareEntryImage(formData)
+        const result = await createEntry(formData)
+        if (!result.ok) {
+          setError(result.error)
+          showSubmitFailure(result.error)
+          return
+        }
+        celebrateEntry()
+        form.reset()
+        const loggedAt = form.querySelector<HTMLInputElement>('#loggedAtLocal')
+        if (loggedAt) loggedAt.value = toLocalInputValue()
+        router.refresh()
+      } catch (err) {
+        const message = formatSubmitError(err, 'Could not save your entry. Please try again.')
+        setError(message)
+        showSubmitFailure(message)
       }
-      celebrateEntry()
-      form.reset()
-      const loggedAt = form.querySelector<HTMLInputElement>('#loggedAtLocal')
-      if (loggedAt) loggedAt.value = toLocalInputValue()
-      router.refresh()
     })
   }
 
@@ -128,10 +142,11 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
         <div className="space-y-2">
           <Label htmlFor="image">Image</Label>
           <Input id="image" name="image" type="file" accept="image/*" />
+          <p className="text-xs text-muted-foreground">Photos are compressed before upload.</p>
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <SubmitErrorAlert message={error} />
 
       <Button type="submit" disabled={pending}>
         {pending ? 'Saving…' : 'Add entry'}

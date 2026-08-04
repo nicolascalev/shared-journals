@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 import { redirects } from './redirects'
+import { SERVER_ACTION_BODY_LIMIT } from './src/utilities/uploadLimits'
 
 const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
@@ -16,6 +17,13 @@ const nextConfig: NextConfig = {
   // See: https://github.com/vercel/next.js/issues/86431
   sassOptions: {
     loadPaths: ['./node_modules/@payloadcms/ui/dist/scss/'],
+  },
+  // Cap close to Vercel Hobby's 4.5 MB function body limit (see uploadLimits.ts).
+  // https://nextjs.org/docs/app/api-reference/config/next-config-js/serverActions#bodysizelimit
+  experimental: {
+    serverActions: {
+      bodySizeLimit: SERVER_ACTION_BODY_LIMIT,
+    },
   },
   images: {
     localPatterns: [

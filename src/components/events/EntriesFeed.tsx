@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { deleteEntry, updateEntry } from '@/app/(frontend)/actions/entries'
+import {
+  SubmitErrorAlert,
+  formatSubmitError,
+  showSubmitFailure,
+} from '@/components/SubmitErrorAlert'
+import { prepareEntryImage } from '@/utilities/compressImage'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
 
 export type FeedEntry = {
@@ -196,12 +202,19 @@ export function EntryCard({
     if (!window.confirm('Delete this entry?')) return
     setError(null)
     startTransition(async () => {
-      const result = await deleteEntry(slug, entry.id)
-      if (!result.ok) {
-        setError(result.error)
-        return
+      try {
+        const result = await deleteEntry(slug, entry.id)
+        if (!result.ok) {
+          setError(result.error)
+          showSubmitFailure(result.error)
+          return
+        }
+        router.refresh()
+      } catch (err) {
+        const message = formatSubmitError(err, 'Could not delete this entry.')
+        setError(message)
+        showSubmitFailure(message)
       }
-      router.refresh()
     })
   }
 
@@ -215,13 +228,21 @@ export function EntryCard({
     formData.set('entryId', entry.id)
 
     startTransition(async () => {
-      const result = await updateEntry(formData)
-      if (!result.ok) {
-        setError(result.error)
-        return
+      try {
+        await prepareEntryImage(formData)
+        const result = await updateEntry(formData)
+        if (!result.ok) {
+          setError(result.error)
+          showSubmitFailure(result.error)
+          return
+        }
+        setEditing(false)
+        router.refresh()
+      } catch (err) {
+        const message = formatSubmitError(err, 'Could not update this entry.')
+        setError(message)
+        showSubmitFailure(message)
       }
-      setEditing(false)
-      router.refresh()
     })
   }
 
@@ -275,7 +296,7 @@ export function EntryCard({
               <Input id={`img-${entry.id}`} name="image" type="file" accept="image/*" />
             </div>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <SubmitErrorAlert message={error} /> : null}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               Save
@@ -328,7 +349,7 @@ export function EntryCard({
               </Button>
             </div>
           ) : null}
-          {error ? <p className="text-sm text-destructive mt-2">{error}</p> : null}
+          {error ? <SubmitErrorAlert message={error} /> : null}
         </>
       )}
     </li>
