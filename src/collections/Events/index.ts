@@ -255,6 +255,15 @@ export const Events: CollectionConfig = {
         defaultColumns: ['member', 'loggedAt', 'description'],
       },
     },
+    {
+      name: 'updates',
+      type: 'join',
+      collection: 'updates',
+      on: 'event',
+      admin: {
+        defaultColumns: ['member', 'postedAt', 'text'],
+      },
+    },
   ],
   timestamps: true,
 }

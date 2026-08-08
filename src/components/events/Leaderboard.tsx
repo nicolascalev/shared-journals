@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, ChevronLeft, ChevronRight, Eye, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { EntryCard, type FeedEntry } from '@/components/events/EntriesFeed'
+import { EntryCard, type FeedEntry } from '@/components/events/TimelineFeed'
 
 export type LeaderboardRow = {
   memberId: string

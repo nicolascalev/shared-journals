@@ -11,3 +11,6 @@ export const SERVER_ACTION_BODY_LIMIT = '4mb'
 export const MAX_IMAGE_UPLOAD_BYTES = 3 * 1024 * 1024
 
 export const MAX_IMAGE_DIMENSION = 1920
+
+/** Max images per Update post */
+export const MAX_UPDATE_IMAGES = 4

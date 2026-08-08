@@ -72,6 +72,7 @@ export interface Config {
     members: Member;
     events: Event;
     entries: Entry;
+    updates: Update;
     forms: Form;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
@@ -82,6 +83,7 @@ export interface Config {
   collectionsJoins: {
     events: {
       entries: 'entries';
+      updates: 'updates';
     };
   };
   collectionsSelect: {
@@ -90,6 +92,7 @@ export interface Config {
     members: MembersSelect<false> | MembersSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     entries: EntriesSelect<false> | EntriesSelect<true>;
+    updates: UpdatesSelect<false> | UpdatesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -293,6 +296,11 @@ export interface Event {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  updates?: {
+    docs?: (number | Update)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -481,6 +489,23 @@ export interface Entry {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "updates".
+ */
+export interface Update {
+  id: number;
+  event: number | Event;
+  member: number | Member;
+  postedAt: string;
+  text: string;
+  /**
+   * Optional photos (max 4).
+   */
+  images?: (number | Media)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
 export interface FormSubmission {
@@ -541,6 +566,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'entries';
         value: number | Entry;
+      } | null)
+    | ({
+        relationTo: 'updates';
+        value: number | Update;
       } | null)
     | ({
         relationTo: 'forms';
@@ -705,6 +734,7 @@ export interface EventsSelect<T extends boolean = true> {
   inviteDescription?: T;
   inviteForm?: T;
   entries?: T;
+  updates?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -719,6 +749,19 @@ export interface EntriesSelect<T extends boolean = true> {
   description?: T;
   durationMinutes?: T;
   image?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "updates_select".
+ */
+export interface UpdatesSelect<T extends boolean = true> {
+  event?: T;
+  member?: T;
+  postedAt?: T;
+  text?: T;
+  images?: T;
   updatedAt?: T;
   createdAt?: T;
 }

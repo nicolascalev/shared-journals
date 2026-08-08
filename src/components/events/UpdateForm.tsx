@@ -13,9 +13,9 @@ import {
   formatSubmitError,
   showSubmitFailure,
 } from '@/components/SubmitErrorAlert'
-import { createEntry } from '@/app/(frontend)/actions/entries'
-import { celebrateEntry } from '@/utilities/celebrateEntry'
-import { prepareEntryImage } from '@/utilities/compressImage'
+import { createUpdate, uploadMedia } from '@/app/(frontend)/actions/updates'
+import { compressImageFiles } from '@/utilities/compressImage'
+import { MAX_UPDATE_IMAGES } from '@/utilities/uploadLimits'
 import type { MemberOption } from './MemberPicker'
 
 type Props = {
@@ -29,7 +29,7 @@ function toLocalInputValue(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export function EntryForm({ slug, members, selectedMemberId }: Props) {
+export function UpdateForm({ slug, members, selectedMemberId }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -40,31 +40,63 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
     const form = e.currentTarget
     const formData = new FormData(form)
 
-    const local = String(formData.get('loggedAtLocal') || '')
+    const local = String(formData.get('postedAtLocal') || '')
     if (local) {
-      formData.set('loggedAt', new Date(local).toISOString())
+      formData.set('postedAt', new Date(local).toISOString())
     }
     formData.set('slug', slug)
     if (selectedMemberId) {
       formData.set('memberId', String(selectedMemberId))
     }
 
+    const fileInput = form.querySelector<HTMLInputElement>('#update-images')
+    const selectedFiles = fileInput?.files ? Array.from(fileInput.files) : []
+
+    if (selectedFiles.length > MAX_UPDATE_IMAGES) {
+      const message = `You can attach at most ${MAX_UPDATE_IMAGES} images.`
+      setError(message)
+      showSubmitFailure(message)
+      return
+    }
+
     startTransition(async () => {
       try {
-        await prepareEntryImage(formData)
-        const result = await createEntry(formData)
+        const text = String(formData.get('text') || '').trim()
+        const compressed = await compressImageFiles(selectedFiles)
+        const imageIds: number[] = []
+
+        for (const file of compressed) {
+          const uploadData = new FormData()
+          uploadData.set('slug', slug)
+          uploadData.set('alt', text.slice(0, 100) || 'Update photo')
+          uploadData.set('image', file)
+          const uploaded = await uploadMedia(uploadData)
+          if (!uploaded.ok) {
+            setError(uploaded.error)
+            showSubmitFailure(uploaded.error)
+            return
+          }
+          imageIds.push(uploaded.id)
+        }
+
+        formData.delete('images')
+        formData.delete('imageIds')
+        for (const id of imageIds) {
+          formData.append('imageIds', String(id))
+        }
+
+        const result = await createUpdate(formData)
         if (!result.ok) {
           setError(result.error)
           showSubmitFailure(result.error)
           return
         }
-        celebrateEntry()
         form.reset()
-        const loggedAt = form.querySelector<HTMLInputElement>('#loggedAtLocal')
-        if (loggedAt) loggedAt.value = toLocalInputValue()
+        const postedAt = form.querySelector<HTMLInputElement>('#postedAtLocal')
+        if (postedAt) postedAt.value = toLocalInputValue()
         router.refresh()
       } catch (err) {
-        const message = formatSubmitError(err, 'Could not save your entry. Please try again.')
+        const message = formatSubmitError(err, 'Could not save your update. Please try again.')
         setError(message)
         showSubmitFailure(message)
       }
@@ -74,19 +106,19 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-border bg-card p-5">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Log an entry</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Post an update</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {selectedMemberId
-            ? 'Add a workout, check-in, or progress note.'
+            ? 'Share a short update with optional photos.'
             : 'Pick your name above before posting.'}
         </p>
       </div>
 
       {!selectedMemberId ? (
         <div className="space-y-2">
-          <Label htmlFor="memberId">Who is this for?</Label>
+          <Label htmlFor="update-memberId">Who is this for?</Label>
           <select
-            id="memberId"
+            id="update-memberId"
             name="memberId"
             required
             className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
@@ -107,10 +139,10 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="loggedAtLocal">When</Label>
+        <Label htmlFor="postedAtLocal">When</Label>
         <Input
-          id="loggedAtLocal"
-          name="loggedAtLocal"
+          id="postedAtLocal"
+          name="postedAtLocal"
           type="datetime-local"
           defaultValue={toLocalInputValue()}
           required
@@ -118,33 +150,29 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="update-text">Update</Label>
         <Textarea
-          id="description"
-          name="description"
-          placeholder="What did you do?"
+          id="update-text"
+          name="text"
+          placeholder="What's going on?"
           required
           rows={3}
+          maxLength={500}
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="durationMinutes">Duration (minutes)</Label>
-          <Input
-            id="durationMinutes"
-            name="durationMinutes"
-            type="number"
-            min={0}
-            step={1}
-            placeholder="Optional"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="image">Image</Label>
-          <Input id="image" name="image" type="file" accept="image/*" />
-          <p className="text-xs text-muted-foreground">Photos are compressed before upload.</p>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="update-images">Images</Label>
+        <Input
+          id="update-images"
+          name="images"
+          type="file"
+          accept="image/*"
+          multiple
+        />
+        <p className="text-xs text-muted-foreground">
+          Up to {MAX_UPDATE_IMAGES} photos. Each is compressed before upload.
+        </p>
       </div>
 
       <SubmitErrorAlert message={error} />
@@ -153,10 +181,10 @@ export function EntryForm({ slug, members, selectedMemberId }: Props) {
         {pending ? (
           <>
             <Spinner />
-            Saving…
+            Posting…
           </>
         ) : (
-          'Add entry'
+          'Post update'
         )}
       </Button>
     </form>

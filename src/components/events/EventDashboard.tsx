@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Countdown } from '@/components/events/Countdown'
 import { EntryForm } from '@/components/events/EntryForm'
-import { EntriesFeed, type FeedEntry } from '@/components/events/EntriesFeed'
+import { UpdateForm } from '@/components/events/UpdateForm'
+import { TimelineFeed, type FeedEntry, type TimelineItem } from '@/components/events/TimelineFeed'
 import { Leaderboard, type LeaderboardRow } from '@/components/events/Leaderboard'
 import { MemberPicker, type MemberOption } from '@/components/events/MemberPicker'
 import { WelcomeModal } from '@/components/events/WelcomeModal'
@@ -28,6 +31,7 @@ type Props = {
   members: MemberOption[]
   selectedMemberId?: string | null
   entries: FeedEntry[]
+  timeline: TimelineItem[]
   leaderboard: LeaderboardRow[]
   showWelcome?: boolean
   eventPath: string
@@ -45,6 +49,7 @@ export function EventDashboard({
   members,
   selectedMemberId,
   entries,
+  timeline,
   leaderboard,
   showWelcome = false,
   eventPath,
@@ -94,7 +99,14 @@ export function EventDashboard({
               })
             }}
           >
-            Lock event
+            {pending ? (
+              <>
+                <Spinner />
+                Locking…
+              </>
+            ) : (
+              'Lock event'
+            )}
           </Button>
         </div>
       </div>
@@ -156,18 +168,29 @@ export function EventDashboard({
         <div className="rounded-lg border border-dashed border-border bg-muted/30 px-5 py-6">
           <h2 className="text-lg font-semibold tracking-tight">Logging closed</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            This event has finished. You can still browse entries and results below.
+            This event has finished. You can still browse the timeline and results below.
           </p>
         </div>
       ) : null}
 
       {phase === 'active' ? (
-        <EntryForm slug={slug} members={members} selectedMemberId={selectedMemberId} />
+        <Tabs defaultValue="entry">
+          <TabsList>
+            <TabsTrigger value="entry">Entry</TabsTrigger>
+            <TabsTrigger value="update">Update</TabsTrigger>
+          </TabsList>
+          <TabsContent value="entry">
+            <EntryForm slug={slug} members={members} selectedMemberId={selectedMemberId} />
+          </TabsContent>
+          <TabsContent value="update">
+            <UpdateForm slug={slug} members={members} selectedMemberId={selectedMemberId} />
+          </TabsContent>
+        </Tabs>
       ) : null}
 
-      <EntriesFeed
+      <TimelineFeed
         slug={slug}
-        entries={entries}
+        items={timeline}
         selectedMemberId={phase === 'active' ? selectedMemberId : null}
       />
     </div>

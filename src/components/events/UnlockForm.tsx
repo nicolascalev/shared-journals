@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 import {
   SubmitErrorAlert,
   formatSubmitError,
@@ -69,7 +70,14 @@ export function UnlockForm({ slug, title }: Props) {
         </div>
         <SubmitErrorAlert message={error} />
         <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Unlocking…' : 'Unlock'}
+          {pending ? (
+            <>
+              <Spinner />
+              Unlocking…
+            </>
+          ) : (
+            'Unlock'
+          )}
         </Button>
       </form>
     </div>

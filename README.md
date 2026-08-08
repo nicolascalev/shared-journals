@@ -194,21 +194,24 @@ If your database is pointed to production you will want to set `push: false` oth
 
 #### Migrations
 
-[Migrations](https://payloadcms.com/docs/database/migrations) are essentially SQL code versions that keeps track of your schema. When deploy with Postgres you will need to make sure you create and then run your migrations.
+[Migrations](https://payloadcms.com/docs/database/migrations) are SQL schema versions tracked in the database. This project sets `push: false`, so **all** schema changes (local and production) go through migrations.
 
-Locally create a migration
+**Create a migration locally** after changing collections/fields:
 
 ```bash
 pnpm payload migrate:create
 ```
 
-This creates the migration files you will need to push alongside with your new configuration.
+Commit the new files under `src/migrations/` (including the updated `index.ts`).
 
-On the server after building and before running `pnpm start` you will want to run your migrations
+**Apply pending migrations:**
 
 ```bash
-pnpm payload migrate
+pnpm migrate
+# or: pnpm payload migrate
 ```
+
+**Production / Vercel:** `pnpm build` already runs `payload migrate` before `next build`. Ensure `DATABASE_URL` is available at **build time** so the deploy can apply schema changes. Before a non-trivial migration, take a DB backup/snapshot. Prefer fixing forward with a new migration if something fails; restore from backup for emergencies. See [Payload migration docs](https://payloadcms.com/docs/database/migrations) before running `migrate:down` against production.
 
 This command will check for any migrations that have not yet been run and try to run them and it will keep a record of migrations that have been run in the database.
 

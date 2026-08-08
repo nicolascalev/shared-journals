@@ -8,7 +8,7 @@ import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
 
 import { UnlockForm } from '@/components/events/UnlockForm'
 import { EventDashboard } from '@/components/events/EventDashboard'
-import type { FeedEntry } from '@/components/events/EntriesFeed'
+import type { FeedEntry, FeedUpdate, TimelineItem } from '@/components/events/TimelineFeed'
 import type { LeaderboardRow } from '@/components/events/Leaderboard'
 import type { InviteAnswer } from '@/components/events/InviteAnswersButton'
 import {
@@ -98,6 +98,39 @@ export default async function EventPage({ params }: Args) {
     }
   })
 
+  const updatesResult = await payload.find({
+    collection: 'updates',
+    where: { event: { equals: event.id } },
+    sort: '-postedAt',
+    depth: 1,
+    limit: 200,
+    overrideAccess: true,
+  })
+
+  const updates: FeedUpdate[] = updatesResult.docs.map((update) => {
+    const member = typeof update.member === 'object' ? update.member : null
+    const images = (update.images || [])
+      .map((img) => (typeof img === 'object' ? (img as Media) : null))
+      .filter((img): img is Media => Boolean(img))
+
+    return {
+      id: String(update.id),
+      text: update.text,
+      postedAt: update.postedAt,
+      memberId: member ? String(member.id) : String(update.member),
+      memberName: member?.name || 'Unknown',
+      imageUrls: images
+        .map((img) => img.url || img.sizes?.medium?.url || null)
+        .filter((url): url is string => Boolean(url)),
+      imageIds: images.map((img) => String(img.id)),
+    }
+  })
+
+  const timeline: TimelineItem[] = [
+    ...entries.map((entry) => ({ kind: 'entry' as const, at: entry.loggedAt, ...entry })),
+    ...updates.map((update) => ({ kind: 'update' as const, at: update.postedAt, ...update })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
   const counts = new Map<string, number>()
   const lastLoggedAt = new Map<string, number>()
   for (const entry of entries) {
@@ -166,6 +199,7 @@ export default async function EventPage({ params }: Args) {
       members={members}
       selectedMemberId={session.memberId ? String(session.memberId) : null}
       entries={entries}
+      timeline={timeline}
       leaderboard={leaderboard}
       showWelcome={showWelcome}
       eventPath={`${getServerSideURL()}/events/${event.slug}`}

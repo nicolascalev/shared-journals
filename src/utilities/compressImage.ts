@@ -107,3 +107,26 @@ export async function prepareEntryImage(formData: FormData, fieldName = 'image')
   const compressed = await compressImageForUpload(image)
   formData.set(fieldName, compressed)
 }
+
+/** Compress every non-empty File under `fieldName` (supports multi-file inputs). */
+export async function prepareImages(formData: FormData, fieldName = 'images'): Promise<void> {
+  const values = formData.getAll(fieldName)
+  const files = values.filter((v): v is File => v instanceof File && v.size > 0)
+  if (!files.length) return
+
+  formData.delete(fieldName)
+  for (const file of files) {
+    const compressed = await compressImageForUpload(file)
+    formData.append(fieldName, compressed)
+  }
+}
+
+/** Compress a list of image Files for sequential upload. */
+export async function compressImageFiles(files: File[]): Promise<File[]> {
+  const result: File[] = []
+  for (const file of files) {
+    if (!(file instanceof File) || file.size === 0) continue
+    result.push(await compressImageForUpload(file))
+  }
+  return result
+}
